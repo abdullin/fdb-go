@@ -170,7 +170,7 @@ func (sm *StackMachine) processInst(idx int, inst tuple.Tuple) {
 
 	var e error
 
-	op := string(inst[0].([]byte))
+	op := inst[0].(string)
 	if sm.verbose {
 		fmt.Printf("%d. Instruction is %s (%v)\n", idx, op, sm.prefix)
 		fmt.Printf("Stack from [")
@@ -393,7 +393,7 @@ func (sm *StackMachine) processInst(idx int, inst tuple.Tuple) {
 		}
 		sm.store(idx, []byte("SET_CONFLICT_KEY"))
 	case op == "ATOMIC_OP":
-		opname := strings.Replace(strings.Title(strings.Replace(strings.ToLower(string(sm.waitAndPop().item.([]byte))), "_", " ", -1)), " ", "", -1)
+		opname := strings.Replace(strings.Title(strings.Replace(strings.ToLower(sm.waitAndPop().item.(string)), "_", " ", -1)), " ", "", -1)
 		key := fdb.Key(sm.waitAndPop().item.([]byte))
 		value := sm.waitAndPop().item.([]byte)
 		sm.executeMutation(t, func (tr fdb.Transaction) (interface{}, error) {
