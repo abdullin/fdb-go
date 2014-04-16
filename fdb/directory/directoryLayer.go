@@ -452,7 +452,7 @@ func (dl directoryLayer) nodeContainingKey(rtr fdb.ReadTransaction, key []byte) 
 		}
 		prevPrefix := pp[0].([]byte)
 		if bytes.HasPrefix(key, prevPrefix) {
-			return subspace.FromBytes(kvs[0].Key), nil
+			return dl.nodeWithPrefix(prevPrefix), nil
 		}
 	}
 
