@@ -36,42 +36,42 @@ func (o NetworkOptions) SetKnob(param string) error {
 	return o.setOpt(40, []byte(param))
 }
 
-// Set plugin to load for TLS functionality
+// Set the TLS plugin to load. This option, if used, must be set before any other TLS options
 //
-// Parameter: file path
+// Parameter: file path or linker-resolved name
 func (o NetworkOptions) SetTLSPlugin(param string) error {
 	return o.setOpt(41, []byte(param))
 }
 
-// Set bytes from which to load root certificate and public key for TLS connections
+// Set the certificate chain
 //
 // Parameter: certificates
 func (o NetworkOptions) SetTLSCertBytes(param []byte) error {
 	return o.setOpt(42, param)
 }
 
-// Set file from which to load root certificate and public key for TLS connections
+// Set the file from which to load the certificate chain
 //
 // Parameter: file path
 func (o NetworkOptions) SetTLSCertPath(param string) error {
 	return o.setOpt(43, []byte(param))
 }
 
-// Set bytes from which to load the private key for TLS connections
+// Set the private key corresponding to your own certificate
 //
 // Parameter: key
 func (o NetworkOptions) SetTLSKeyBytes(param []byte) error {
 	return o.setOpt(45, param)
 }
 
-// Set file from which to load the private key for TLS connections
+// Set the file from which to load the private key corresponding to your own certificate
 //
 // Parameter: file path
 func (o NetworkOptions) SetTLSKeyPath(param string) error {
 	return o.setOpt(46, []byte(param))
 }
 
-// Set the pattern with which to verify certificates of TLS peers
+// Set the peer certificate field verification criteria
 //
 // Parameter: verification pattern
 func (o NetworkOptions) SetTLSVerifyPeers(param []byte) error {
@@ -184,12 +184,17 @@ func (o TransactionOptions) SetAccessSystemKeys() error {
 	return o.setOpt(301, nil)
 }
 
+// Allows this transaction to read system keys (those that start with the byte 0xFF)
+func (o TransactionOptions) SetReadSystemKeys() error {
+	return o.setOpt(302, nil)
+}
+
 // Not yet implemented.
 func (o TransactionOptions) SetDebugDump() error {
 	return o.setOpt(400, nil)
 }
 
-// Set a timeout in milliseconds which, when elapsed, will cause the transaction automatically to be cancelled. Valid parameter values are ``[0, INT_MAX]``. If set to 0, will disable all timeouts. All pending and any future uses of the transaction will throw an exception. The transaction can be used again after it is reset.
+// Set a timeout in milliseconds which, when elapsed, will cause the transaction automatically to be cancelled. Valid parameter values are ``[0, INT_MAX]``. If set to 0, will disable all timeouts. All pending and any future uses of the transaction will throw an exception. The transaction can be used again after it is reset. Like all transaction options, a timeout must be reset after a call to onError. This behavior allows the user to make the timeout dynamic.
 //
 // Parameter: value in milliseconds of timeout
 func (o TransactionOptions) SetTimeout(param int64) error {
@@ -200,7 +205,7 @@ func (o TransactionOptions) SetTimeout(param int64) error {
 	return o.setOpt(500, b)
 }
 
-// Set a maximum number of retries after which additional calls to onError will throw the most recently seen error code. Valid parameter values are ``[-1, INT_MAX]``. If set to -1, will disable the retry limit.
+// Set a maximum number of retries after which additional calls to onError will throw the most recently seen error code. Valid parameter values are ``[-1, INT_MAX]``. If set to -1, will disable the retry limit. Like all transaction options, the retry limit must be reset after a call to onError. This behavior allows the user to make the retry limit dynamic.
 //
 // Parameter: number of times to retry
 func (o TransactionOptions) SetRetryLimit(param int64) error {
@@ -209,6 +214,17 @@ func (o TransactionOptions) SetRetryLimit(param int64) error {
 		return e
 	}
 	return o.setOpt(501, b)
+}
+
+// Set the maximum amount of backoff delay incurred in the call to onError if the error is retryable. Valid parameter values are ``[0, INT_MAX]``.
+//
+// Parameter: value in milliseconds of maximum delay
+func (o TransactionOptions) SetMaxRetryDelay(param int64) error {
+	b, e := int64ToBytes(param)
+	if e != nil {
+		return e
+	}
+	return o.setOpt(502, b)
 }
 
 type StreamingMode int
