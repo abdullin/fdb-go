@@ -29,6 +29,28 @@ func (o NetworkOptions) SetTraceEnable(param string) error {
 	return o.setOpt(30, []byte(param))
 }
 
+// Sets the maximum size in bytes of a single trace output file. This value should be in the range ``[0, INT64_MAX]``. If the value is set to 0, there is no limit on individual file size. The default is a maximum size of 10,485,760 bytes.
+//
+// Parameter: max size of a single trace output file
+func (o NetworkOptions) SetTraceRollSize(param int64) error {
+	b, e := int64ToBytes(param)
+	if e != nil {
+		return e
+	}
+	return o.setOpt(31, b)
+}
+
+// Sets the maximum size of a all the trace output files put together. This value should be in the range ``[0, INT64_MAX]``. If the value is set to 0, there is no limit on the total size of the files. The default is a maximum size of 104,857,600 bytes. If the default roll size is used, this means that a maximum of 10 trace files will be written at a time.
+//
+// Parameter: max total size of trace files
+func (o NetworkOptions) SetTraceMaxLogsSize(param int64) error {
+	b, e := int64ToBytes(param)
+	if e != nil {
+		return e
+	}
+	return o.setOpt(32, b)
+}
+
 // Set internal tuning or debugging knobs
 //
 // Parameter: knob_name=knob_value
@@ -174,7 +196,7 @@ func (o TransactionOptions) SetPriorityBatch() error {
 	return o.setOpt(201, nil)
 }
 
-// This is a write-only transaction which sets the initial configuration
+// This is a write-only transaction which sets the initial configuration. This option is designed for use by database system tools only.
 func (o TransactionOptions) SetInitializeNewDatabase() error {
 	return o.setOpt(300, nil)
 }
@@ -192,6 +214,11 @@ func (o TransactionOptions) SetReadSystemKeys() error {
 // Not yet implemented.
 func (o TransactionOptions) SetDebugDump() error {
 	return o.setOpt(400, nil)
+}
+
+// Not yet implemented.
+func (o TransactionOptions) SetDebugRetryLogging(param string) error {
+	return o.setOpt(401, []byte(param))
 }
 
 // Set a timeout in milliseconds which, when elapsed, will cause the transaction automatically to be cancelled. Valid parameter values are ``[0, INT_MAX]``. If set to 0, will disable all timeouts. All pending and any future uses of the transaction will throw an exception. The transaction can be used again after it is reset. Like all transaction options, a timeout must be reset after a call to onError. This behavior allows the user to make the timeout dynamic.
@@ -216,7 +243,7 @@ func (o TransactionOptions) SetRetryLimit(param int64) error {
 	return o.setOpt(501, b)
 }
 
-// Set the maximum amount of backoff delay incurred in the call to onError if the error is retryable. Valid parameter values are ``[0, INT_MAX]``.
+// Set the maximum amount of backoff delay incurred in the call to onError if the error is retryable. Defaults to 1000 ms. Valid parameter values are ``[0, INT_MAX]``. Like all transaction options, the maximum retry delay must be reset after a call to onError. If the maximum retry delay is less than the current retry delay of the transaction, then the current retry delay will be clamped to the maximum retry delay.
 //
 // Parameter: value in milliseconds of maximum delay
 func (o TransactionOptions) SetMaxRetryDelay(param int64) error {
@@ -290,6 +317,16 @@ func (t Transaction) BitOr(key KeyConvertible, param []byte) {
 // BitXor performs a bitwise ``xor`` operation.  If the existing value in the database is not present or shorter than ``param``, it is first extended to the length of ``param`` with zero bytes.  If ``param`` is shorter than the existing value in the database, the existing value is truncated to match the length of ``param``.
 func (t Transaction) BitXor(key KeyConvertible, param []byte) {
 	t.atomicOp(key.FDBKey(), param, 8)
+}
+
+// Max performs a little-endian comparison of byte strings. If the existing value in the database is not present or shorter than ``param``, it is first extended to the length of ``param`` with zero bytes.  If ``param`` is shorter than the existing value in the database, the existing value is truncated to match the length of ``param``. The larger of the two values is then stored in the database.
+func (t Transaction) Max(key KeyConvertible, param []byte) {
+	t.atomicOp(key.FDBKey(), param, 12)
+}
+
+// Min performs a little-endian comparison of byte strings. If the existing value in the database is not present or shorter than ``param``, it is first extended to the length of ``param`` with zero bytes.  If ``param`` is shorter than the existing value in the database, the existing value is truncated to match the length of ``param``. The smaller of the two values is then stored in the database.
+func (t Transaction) Min(key KeyConvertible, param []byte) {
+	t.atomicOp(key.FDBKey(), param, 13)
 }
 
 type conflictRangeType int
