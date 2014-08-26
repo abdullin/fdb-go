@@ -217,6 +217,12 @@ func (t Transaction) Commit() FutureNil {
 // Transaction options, and an attempt to do so will return a watches_disabled
 // error.
 //
+// If the transaction used to create a watch encounters an error during commit,
+// then the watch will be set with that error. A transaction whose commit
+// result is unknown will set all of its watches with the commit_unknown_result
+// error. If an uncommitted transaction is reset or destroyed, then any watches
+// it created will be set with the transaction_cancelled error.
+//
 // By default, each database connection can have no more than 10,000 watches
 // that have not yet reported a change. When this number is exceeded, an attempt
 // to create a watch will return a too_many_watches error. This limit can be
