@@ -92,7 +92,7 @@ func Sub(el ...tuple.TupleElement) Subspace {
 func FromBytes(b []byte) Subspace {
 	s := make([]byte, len(b))
 	copy(s, b)
-	return subspace{b}
+	return subspace{s}
 }
 
 func (s subspace) Sub(el ...tuple.TupleElement) Subspace {
