@@ -58,8 +58,8 @@ type directoryLayer struct {
 func NewDirectoryLayer(nodeSS, contentSS subspace.Subspace, allowManualPrefixes bool) Directory {
 	var dl directoryLayer
 
-	dl.nodeSS = nodeSS
-	dl.contentSS = contentSS
+	dl.nodeSS = subspace.FromBytes(nodeSS.Bytes())
+	dl.contentSS = subspace.FromBytes(contentSS.Bytes())
 
 	dl.allowManualPrefixes = allowManualPrefixes
 
