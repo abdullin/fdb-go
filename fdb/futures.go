@@ -27,14 +27,14 @@ package fdb
  #include <foundationdb/fdb_c.h>
  #include <string.h>
 
- extern void notifyChannel(void*);
+ extern void unlockMutex(void*);
 
- void go_callback(FDBFuture* f, void* ch) {
-     notifyChannel(ch);
+ void go_callback(FDBFuture* f, void* m) {
+     unlockMutex(m);
  }
 
- void go_set_callback(void* f, void* ch) {
-     fdb_future_set_callback(f, (FDBCallback)&go_callback, ch);
+ void go_set_callback(void* f, void* m) {
+     fdb_future_set_callback(f, (FDBCallback)&go_callback, m);
  }
 */
 import "C"
@@ -86,9 +86,10 @@ func fdb_future_block_until_ready(f *C.FDBFuture) {
 		return
 	}
 
-	ch := make(chan struct{}, 1)
-	C.go_set_callback(unsafe.Pointer(f), unsafe.Pointer(&ch))
-	<-ch
+	m := &sync.Mutex{}
+	m.Lock()
+	C.go_set_callback(unsafe.Pointer(f), unsafe.Pointer(m))
+	m.Lock()
 }
 
 func (f future) BlockUntilReady() {
