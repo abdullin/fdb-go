@@ -39,9 +39,10 @@ import (
 /* Would put this in futures.go but for the documented issue with
 /* exports and functions in preamble
 /* (https://code.google.com/p/go-wiki/wiki/cgo#Global_functions) */
-//export notifyChannel
-func notifyChannel(ch *chan struct{}) {
-	close(*ch)
+//export unlockMutex
+func unlockMutex(p unsafe.Pointer) {
+	m := (*sync.Mutex)(p)
+	m.Unlock()
 }
 
 // A Transactor can execute a function that requires a Transaction. Functions

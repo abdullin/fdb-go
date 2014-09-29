@@ -27,14 +27,14 @@ package fdb
  #include <foundationdb/fdb_c.h>
  #include <string.h>
 
- extern void notifyChannel(void*);
+ extern void unlockMutex(void*);
 
- void go_callback(FDBFuture* f, void* ch) {
-     notifyChannel(ch);
+ void go_callback(FDBFuture* f, void* m) {
+     unlockMutex(m);
  }
 
- void go_set_callback(void* f, void* ch) {
-     fdb_future_set_callback(f, (FDBCallback)&go_callback, ch);
+ void go_set_callback(void* f, void* m) {
+     fdb_future_set_callback(f, (FDBCallback)&go_callback, m);
  }
 */
 import "C"
@@ -86,9 +86,10 @@ func fdb_future_block_until_ready(f *C.FDBFuture) {
 		return
 	}
 
-	ch := make(chan struct{}, 1)
-	C.go_set_callback(unsafe.Pointer(f), unsafe.Pointer(&ch))
-	<-ch
+	m := &sync.Mutex{}
+	m.Lock()
+	C.go_set_callback(unsafe.Pointer(f), unsafe.Pointer(m))
+	m.Lock()
 }
 
 func (f future) BlockUntilReady() {
@@ -250,8 +251,8 @@ type futureKeyValueArray struct {
 	*future
 }
 
-func stringRefToSlice(ptr uintptr) []byte {
-	size := *((*C.int)(unsafe.Pointer(ptr+8)))
+func stringRefToSlice(ptr unsafe.Pointer) []byte {
+	size := *((*C.int)(unsafe.Pointer(uintptr(ptr)+8)))
 
 	if size == 0 {
 		return []byte{}
@@ -265,22 +266,21 @@ func stringRefToSlice(ptr uintptr) []byte {
 func (f futureKeyValueArray) Get() ([]KeyValue, bool, error) {
 	f.BlockUntilReady()
 
-	var kvs *C.void
+	var kvs *C.FDBKeyValue
 	var count C.int
 	var more C.fdb_bool_t
 
-	if err := C.fdb_future_get_keyvalue_array(f.ptr, (**C.FDBKeyValue)(unsafe.Pointer(&kvs)), &count, &more); err != 0 {
+	if err := C.fdb_future_get_keyvalue_array(f.ptr, &kvs, &count, &more); err != 0 {
 		return nil, false, Error{int(err)}
 	}
 
 	ret := make([]KeyValue, int(count))
 
 	for i := 0; i < int(count); i++ {
-		kvptr := uintptr(unsafe.Pointer(kvs)) + uintptr(i * 24)
+		kvptr := unsafe.Pointer(uintptr(unsafe.Pointer(kvs)) + uintptr(i * 24))
 
 		ret[i].Key = stringRefToSlice(kvptr)
-		ret[i].Value = stringRefToSlice(kvptr + 12)
-
+		ret[i].Value = stringRefToSlice(unsafe.Pointer(uintptr(kvptr) + 12))
 	}
 
  	return ret, (more != 0), nil
