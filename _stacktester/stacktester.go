@@ -557,7 +557,7 @@ func main() {
 
 	var e error
 
-	e = fdb.APIVersion(200)
+	e = fdb.APIVersion(300)
 	if e != nil {
 		log.Fatal(e)
 	}

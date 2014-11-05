@@ -22,7 +22,7 @@
 package fdb
 
 /*
- #define FDB_API_VERSION 200
+ #define FDB_API_VERSION 300
  #include <foundationdb/fdb_c.h>
 */
 import "C"
