@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"reflect"
 	"time"
+	"strconv"
 )
 
 const verbose bool = false
@@ -551,13 +552,19 @@ func main() {
 	var clusterFile string
 
 	prefix := []byte(os.Args[1])
-	if len(os.Args) > 2 {
-		clusterFile = os.Args[2]
+	if len(os.Args) > 3 {
+		clusterFile = os.Args[3]
 	}
 
 	var e error
+	var apiVersion int
 
-	e = fdb.APIVersion(300)
+	apiVersion, e = strconv.Atoi(os.Args[2])
+	if e != nil {
+		log.Fatal(e)
+	}
+
+	e = fdb.APIVersion(apiVersion)
 	if e != nil {
 		log.Fatal(e)
 	}
