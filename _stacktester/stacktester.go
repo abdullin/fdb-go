@@ -10,6 +10,8 @@ import (
 	"sync"
 	"runtime"
 	"reflect"
+	"time"
+	"strconv"
 )
 
 const verbose bool = false
@@ -156,6 +158,83 @@ func (sm *StackMachine) executeMutation(t fdb.Transactor, f func (fdb.Transactio
 	}
 }
 
+func (sm *StackMachine) testWatches() {
+	tr, e := db.CreateTransaction()
+	if e != nil { panic(e) }
+
+	tr.Set(fdb.Key("w0"), []byte("0"))
+	tr.Set(fdb.Key("w2"), []byte("2"))
+	tr.Set(fdb.Key("w3"), []byte("3"))
+
+	tr.Commit().MustGet()
+
+	var watches [4]fdb.FutureNil
+	watches[0] = tr.Watch(fdb.Key("w0"))
+	watches[1] = tr.Watch(fdb.Key("w1"))
+	watches[2] = tr.Watch(fdb.Key("w2"))
+	watches[3] = tr.Watch(fdb.Key("w3"))
+
+	time.Sleep(1 * time.Second)
+
+	for _, watch := range(watches) {
+		if watch.IsReady() {
+			panic("Watch should not be ready (1)")
+		}
+	}
+
+	tr.Set(fdb.Key("w0"), []byte("0"))
+	tr.Clear(fdb.Key("w1"))
+	tr.Commit().MustGet()
+
+	time.Sleep(5 * time.Second)
+
+	for _, watch := range(watches) {
+		if watch.IsReady() {
+			panic("Watch should not be ready (2)")
+		}
+	}
+
+	tr.Set(fdb.Key("w0"), []byte("a"))
+	tr.Set(fdb.Key("w1"), []byte("b"))
+	tr.Clear(fdb.Key("w2"))
+	tr.BitXor(fdb.Key("w3"), []byte("\xff\xff"))
+	tr.Commit().MustGet()
+
+	for _, watch := range(watches) {
+		watch.MustGet()
+	}
+}
+
+func (sm *StackMachine) testLocality() {
+	tr, e := db.CreateTransaction()
+	if e != nil { panic(e) }
+
+	tr.Options().SetReadSystemKeys()
+	boundaryKeys, e := db.LocalityGetBoundaryKeys(fdb.KeyRange{fdb.Key(""), fdb.Key("\xff\xff")}, 0, 0)
+	if e != nil { panic(e) }
+
+	for i:=0; i<len(boundaryKeys)-1 ; i++ {
+		start := boundaryKeys[i]
+		end := tr.GetKey(fdb.LastLessThan(boundaryKeys[i+1])).MustGet()
+
+		startAddresses := tr.LocalityGetAddressesForKey(start).MustGet()
+		endAddresses := tr.LocalityGetAddressesForKey(end).MustGet()
+
+		for _, address1 := range(startAddresses) {
+			found := false
+			for _, address2 := range(endAddresses) {
+				if address1 == address2 {
+					found = true
+					break
+				}
+			}
+			if !found { 
+				panic("Locality not internally consistent.")
+			}
+		}
+	}
+}
+
 func (sm *StackMachine) processInst(idx int, inst tuple.Tuple) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -170,7 +249,7 @@ func (sm *StackMachine) processInst(idx int, inst tuple.Tuple) {
 
 	var e error
 
-	op := string(inst[0].([]byte))
+	op := inst[0].(string)
 	if sm.verbose {
 		fmt.Printf("%d. Instruction is %s (%v)\n", idx, op, sm.prefix)
 		fmt.Printf("Stack from [")
@@ -393,7 +472,7 @@ func (sm *StackMachine) processInst(idx int, inst tuple.Tuple) {
 		}
 		sm.store(idx, []byte("SET_CONFLICT_KEY"))
 	case op == "ATOMIC_OP":
-		opname := strings.Replace(strings.Title(strings.Replace(strings.ToLower(string(sm.waitAndPop().item.([]byte))), "_", " ", -1)), " ", "", -1)
+		opname := strings.Replace(strings.Title(strings.Replace(strings.ToLower(sm.waitAndPop().item.(string)), "_", " ", -1)), " ", "", -1)
 		key := fdb.Key(sm.waitAndPop().item.([]byte))
 		value := sm.waitAndPop().item.([]byte)
 		sm.executeMutation(t, func (tr fdb.Transaction) (interface{}, error) {
@@ -405,6 +484,31 @@ func (sm *StackMachine) processInst(idx int, inst tuple.Tuple) {
 	case op == "CANCEL":
 		sm.tr.Cancel()
 	case op == "UNIT_TESTS":
+		db.Options().SetLocationCacheSize(100001)
+		db.Options().SetMaxWatches(10001)
+
+		tr, e := db.CreateTransaction()
+		if e != nil { panic(e) }
+
+		tr.Options().SetPrioritySystemImmediate()
+		tr.Options().SetPriorityBatch()
+		tr.Options().SetCausalReadRisky()
+		tr.Options().SetCausalWriteRisky()
+		tr.Options().SetReadYourWritesDisable()
+		tr.Options().SetReadAheadDisable()
+		tr.Options().SetReadSystemKeys()
+		tr.Options().SetAccessSystemKeys()
+		tr.Options().SetDurabilityDevNullIsWebScale()
+		tr.Options().SetTimeout(1000)
+		tr.Options().SetRetryLimit(5)
+		tr.Options().SetMaxRetryDelay(100)
+
+		tr.Get(fdb.Key("\xff")).MustGet()
+		tr.Commit().MustGet()
+
+		sm.testWatches()
+		sm.testLocality()
+
 	case strings.HasPrefix(op, "DIRECTORY_"):
 		sm.de.processOp(sm, op[10:], isDB, idx, t, rt)
 	default:
@@ -448,13 +552,19 @@ func main() {
 	var clusterFile string
 
 	prefix := []byte(os.Args[1])
-	if len(os.Args) > 2 {
-		clusterFile = os.Args[2]
+	if len(os.Args) > 3 {
+		clusterFile = os.Args[3]
 	}
 
 	var e error
+	var apiVersion int
 
-	e = fdb.APIVersion(200)
+	apiVersion, e = strconv.Atoi(os.Args[2])
+	if e != nil {
+		log.Fatal(e)
+	}
+
+	e = fdb.APIVersion(apiVersion)
 	if e != nil {
 		log.Fatal(e)
 	}

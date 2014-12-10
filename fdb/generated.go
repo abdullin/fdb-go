@@ -29,6 +29,28 @@ func (o NetworkOptions) SetTraceEnable(param string) error {
 	return o.setOpt(30, []byte(param))
 }
 
+// Sets the maximum size in bytes of a single trace output file. This value should be in the range ``[0, INT64_MAX]``. If the value is set to 0, there is no limit on individual file size. The default is a maximum size of 10,485,760 bytes.
+//
+// Parameter: max size of a single trace output file
+func (o NetworkOptions) SetTraceRollSize(param int64) error {
+	b, e := int64ToBytes(param)
+	if e != nil {
+		return e
+	}
+	return o.setOpt(31, b)
+}
+
+// Sets the maximum size of a all the trace output files put together. This value should be in the range ``[0, INT64_MAX]``. If the value is set to 0, there is no limit on the total size of the files. The default is a maximum size of 104,857,600 bytes. If the default roll size is used, this means that a maximum of 10 trace files will be written at a time.
+//
+// Parameter: max total size of trace files
+func (o NetworkOptions) SetTraceMaxLogsSize(param int64) error {
+	b, e := int64ToBytes(param)
+	if e != nil {
+		return e
+	}
+	return o.setOpt(32, b)
+}
+
 // Set internal tuning or debugging knobs
 //
 // Parameter: knob_name=knob_value
@@ -36,42 +58,42 @@ func (o NetworkOptions) SetKnob(param string) error {
 	return o.setOpt(40, []byte(param))
 }
 
-// Set plugin to load for TLS functionality
+// Set the TLS plugin to load. This option, if used, must be set before any other TLS options
 //
-// Parameter: file path
+// Parameter: file path or linker-resolved name
 func (o NetworkOptions) SetTLSPlugin(param string) error {
 	return o.setOpt(41, []byte(param))
 }
 
-// Set bytes from which to load root certificate and public key for TLS connections
+// Set the certificate chain
 //
 // Parameter: certificates
 func (o NetworkOptions) SetTLSCertBytes(param []byte) error {
 	return o.setOpt(42, param)
 }
 
-// Set file from which to load root certificate and public key for TLS connections
+// Set the file from which to load the certificate chain
 //
 // Parameter: file path
 func (o NetworkOptions) SetTLSCertPath(param string) error {
 	return o.setOpt(43, []byte(param))
 }
 
-// Set bytes from which to load the private key for TLS connections
+// Set the private key corresponding to your own certificate
 //
 // Parameter: key
 func (o NetworkOptions) SetTLSKeyBytes(param []byte) error {
 	return o.setOpt(45, param)
 }
 
-// Set file from which to load the private key for TLS connections
+// Set the file from which to load the private key corresponding to your own certificate
 //
 // Parameter: file path
 func (o NetworkOptions) SetTLSKeyPath(param string) error {
 	return o.setOpt(46, []byte(param))
 }
 
-// Set the pattern with which to verify certificates of TLS peers
+// Set the peer certificate field verification criteria
 //
 // Parameter: verification pattern
 func (o NetworkOptions) SetTLSVerifyPeers(param []byte) error {
@@ -174,7 +196,7 @@ func (o TransactionOptions) SetPriorityBatch() error {
 	return o.setOpt(201, nil)
 }
 
-// This is a write-only transaction which sets the initial configuration
+// This is a write-only transaction which sets the initial configuration. This option is designed for use by database system tools only.
 func (o TransactionOptions) SetInitializeNewDatabase() error {
 	return o.setOpt(300, nil)
 }
@@ -184,12 +206,22 @@ func (o TransactionOptions) SetAccessSystemKeys() error {
 	return o.setOpt(301, nil)
 }
 
+// Allows this transaction to read system keys (those that start with the byte 0xFF)
+func (o TransactionOptions) SetReadSystemKeys() error {
+	return o.setOpt(302, nil)
+}
+
 // Not yet implemented.
 func (o TransactionOptions) SetDebugDump() error {
 	return o.setOpt(400, nil)
 }
 
-// Set a timeout in milliseconds which, when elapsed, will cause the transaction automatically to be cancelled. Valid parameter values are ``[0, INT_MAX]``. If set to 0, will disable all timeouts. All pending and any future uses of the transaction will throw an exception. The transaction can be used again after it is reset.
+// Not yet implemented.
+func (o TransactionOptions) SetDebugRetryLogging(param string) error {
+	return o.setOpt(401, []byte(param))
+}
+
+// Set a timeout in milliseconds which, when elapsed, will cause the transaction automatically to be cancelled. Valid parameter values are ``[0, INT_MAX]``. If set to 0, will disable all timeouts. All pending and any future uses of the transaction will throw an exception. The transaction can be used again after it is reset. Like all transaction options, a timeout must be reset after a call to onError. This behavior allows the user to make the timeout dynamic.
 //
 // Parameter: value in milliseconds of timeout
 func (o TransactionOptions) SetTimeout(param int64) error {
@@ -200,7 +232,7 @@ func (o TransactionOptions) SetTimeout(param int64) error {
 	return o.setOpt(500, b)
 }
 
-// Set a maximum number of retries after which additional calls to onError will throw the most recently seen error code. Valid parameter values are ``[-1, INT_MAX]``. If set to -1, will disable the retry limit.
+// Set a maximum number of retries after which additional calls to onError will throw the most recently seen error code. Valid parameter values are ``[-1, INT_MAX]``. If set to -1, will disable the retry limit. Like all transaction options, the retry limit must be reset after a call to onError. This behavior allows the user to make the retry limit dynamic.
 //
 // Parameter: number of times to retry
 func (o TransactionOptions) SetRetryLimit(param int64) error {
@@ -209,6 +241,27 @@ func (o TransactionOptions) SetRetryLimit(param int64) error {
 		return e
 	}
 	return o.setOpt(501, b)
+}
+
+// Set the maximum amount of backoff delay incurred in the call to onError if the error is retryable. Defaults to 1000 ms. Valid parameter values are ``[0, INT_MAX]``. Like all transaction options, the maximum retry delay must be reset after a call to onError. If the maximum retry delay is less than the current retry delay of the transaction, then the current retry delay will be clamped to the maximum retry delay.
+//
+// Parameter: value in milliseconds of maximum delay
+func (o TransactionOptions) SetMaxRetryDelay(param int64) error {
+	b, e := int64ToBytes(param)
+	if e != nil {
+		return e
+	}
+	return o.setOpt(502, b)
+}
+
+// Snapshot read operations will see the results of writes done in the same transaction.
+func (o TransactionOptions) SetSnapshotRywEnable() error {
+	return o.setOpt(600, nil)
+}
+
+// Snapshot read operations will not see the results of writes done in the same transaction.
+func (o TransactionOptions) SetSnapshotRywDisable() error {
+	return o.setOpt(601, nil)
 }
 
 type StreamingMode int
@@ -274,6 +327,16 @@ func (t Transaction) BitOr(key KeyConvertible, param []byte) {
 // BitXor performs a bitwise ``xor`` operation.  If the existing value in the database is not present or shorter than ``param``, it is first extended to the length of ``param`` with zero bytes.  If ``param`` is shorter than the existing value in the database, the existing value is truncated to match the length of ``param``.
 func (t Transaction) BitXor(key KeyConvertible, param []byte) {
 	t.atomicOp(key.FDBKey(), param, 8)
+}
+
+// Max performs a little-endian comparison of byte strings. If the existing value in the database is not present or shorter than ``param``, it is first extended to the length of ``param`` with zero bytes.  If ``param`` is shorter than the existing value in the database, the existing value is truncated to match the length of ``param``. The larger of the two values is then stored in the database.
+func (t Transaction) Max(key KeyConvertible, param []byte) {
+	t.atomicOp(key.FDBKey(), param, 12)
+}
+
+// Min performs a little-endian comparison of byte strings. If the existing value in the database is not present or shorter than ``param``, it is first extended to the length of ``param`` with zero bytes.  If ``param`` is shorter than the existing value in the database, the existing value is truncated to match the length of ``param``. The smaller of the two values is then stored in the database.
+func (t Transaction) Min(key KeyConvertible, param []byte) {
+	t.atomicOp(key.FDBKey(), param, 13)
 }
 
 type conflictRangeType int
