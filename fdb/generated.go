@@ -254,6 +254,16 @@ func (o TransactionOptions) SetMaxRetryDelay(param int64) error {
 	return o.setOpt(502, b)
 }
 
+// Snapshot read operations will see the results of writes done in the same transaction.
+func (o TransactionOptions) SetSnapshotRywEnable() error {
+	return o.setOpt(600, nil)
+}
+
+// Snapshot read operations will not see the results of writes done in the same transaction.
+func (o TransactionOptions) SetSnapshotRywDisable() error {
+	return o.setOpt(601, nil)
+}
+
 type StreamingMode int
 const (
 
