@@ -45,7 +45,7 @@ A basic interaction with the FoundationDB API is demonstrated below:
 
     func main() {
         // Different API versions may expose different runtime behaviors.
-        fdb.MustAPIVersion(300)
+        fdb.MustAPIVersion(200)
 
         // Open the default database from the system cluster
         db := fdb.MustOpenDefault()
