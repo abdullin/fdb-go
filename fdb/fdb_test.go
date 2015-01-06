@@ -22,8 +22,8 @@
 package fdb_test
 
 import (
-	"github.com/FoundationDB/fdb-go/fdb"
 	"fmt"
+	"github.com/FoundationDB/fdb-go/fdb"
 )
 
 func ExampleOpenDefault() {
@@ -63,7 +63,7 @@ func ExampleTransactor() {
 	setMany := func(t fdb.Transactor, value []byte, keys ...fdb.Key) error {
 		fmt.Printf("setMany called with: %T\n", t)
 		_, e := t.Transact(func(tr fdb.Transaction) (interface{}, error) {
-			for _, key := range(keys) {
+			for _, key := range keys {
 				setOne(tr, key, value)
 			}
 			return nil, nil

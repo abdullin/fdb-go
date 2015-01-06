@@ -28,6 +28,7 @@ package fdb
 import "C"
 
 import (
+	"encoding/json"
 	"runtime"
 )
 
@@ -233,4 +234,19 @@ func (d Database) LocalityGetBoundaryKeys(er ExactRange, limit int, readVersion 
 	}
 
 	return boundaries, nil
+}
+
+// Status returns cluster status information.
+func (d Database) Status() (*Status, error) {
+	b, e := d.ReadTransact(func(tr ReadTransaction) (interface{}, error) {
+		return tr.Get(Key("\xFF\xFF/status/json")).MustGet(), nil
+	})
+
+	if e != nil {
+		return nil, e
+	}
+
+	status := new(Status)
+	e = json.Unmarshal(b.([]byte), status)
+	return status, e
 }
