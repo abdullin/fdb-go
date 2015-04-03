@@ -23,6 +23,7 @@ package fdb
 
 /*
  #define FDB_API_VERSION 200
+ #cgo CFLAGS: -I/usr/local/include
  #include <foundationdb/fdb_c.h>
 */
 import "C"

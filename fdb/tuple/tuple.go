@@ -33,12 +33,10 @@
 // nil.
 package tuple
 
-import (
-	"fmt"
-	"encoding/binary"
-	"bytes"
-	"github.com/FoundationDB/fdb-go/fdb"
-)
+import "github.com/segmentio/fdb-go/fdb"
+import "encoding/binary"
+import "bytes"
+import "fmt"
 
 // A TupleElement is one of the types that may be encoded in FoundationDB
 // tuples. Although the Go compiler cannot enforce this, it is a programming
@@ -59,15 +57,15 @@ type TupleElement interface{}
 type Tuple []TupleElement
 
 var sizeLimits = []uint64{
-	1 << (0 * 8) - 1,
-	1 << (1 * 8) - 1,
-	1 << (2 * 8) - 1,
-	1 << (3 * 8) - 1,
-	1 << (4 * 8) - 1,
-	1 << (5 * 8) - 1,
-	1 << (6 * 8) - 1,
-	1 << (7 * 8) - 1,
-	1 << (8 * 8) - 1,
+	1<<(0*8) - 1,
+	1<<(1*8) - 1,
+	1<<(2*8) - 1,
+	1<<(3*8) - 1,
+	1<<(4*8) - 1,
+	1<<(5*8) - 1,
+	1<<(6*8) - 1,
+	1<<(7*8) - 1,
+	1<<(8*8) - 1,
 }
 
 func encodeBytes(buf *bytes.Buffer, code byte, b []byte) {
@@ -96,11 +94,11 @@ func encodeInt(buf *bytes.Buffer, i int64) {
 	switch {
 	case i > 0:
 		n = bisectLeft(uint64(i))
-		buf.WriteByte(byte(0x14+n))
+		buf.WriteByte(byte(0x14 + n))
 		binary.Write(&ibuf, binary.BigEndian, i)
 	case i < 0:
 		n = bisectLeft(uint64(-i))
-		buf.WriteByte(byte(0x14-n))
+		buf.WriteByte(byte(0x14 - n))
 		binary.Write(&ibuf, binary.BigEndian, int64(sizeLimits[n])+i)
 	}
 
@@ -117,7 +115,7 @@ func encodeInt(buf *bytes.Buffer, i int64) {
 func (t Tuple) Pack() []byte {
 	buf := new(bytes.Buffer)
 
-	for i, e := range(t) {
+	for i, e := range t {
 		switch e := e.(type) {
 		case nil:
 			buf.WriteByte(0x00)
@@ -146,7 +144,7 @@ func findTerminator(b []byte) int {
 	for {
 		idx := bytes.IndexByte(bp, 0x00)
 		length += idx
-		if idx + 1 == len(bp) || bp[idx+1] != 0xFF {
+		if idx+1 == len(bp) || bp[idx+1] != 0xFF {
 			break
 		}
 		length += 2
@@ -190,7 +188,7 @@ func decodeInt(b []byte) (int64, int) {
 		ret -= int64(sizeLimits[n])
 	}
 
-	return ret, n+1
+	return ret, n + 1
 }
 
 // Unpack returns the tuple encoded by the provided byte slice, or an error if
@@ -251,7 +249,7 @@ func (t Tuple) FDBRangeKeySelectors() (fdb.Selectable, fdb.Selectable) {
 }
 
 func concat(a []byte, b ...byte) []byte {
-	r := make([]byte, len(a) + len(b))
+	r := make([]byte, len(a)+len(b))
 	copy(r, a)
 	copy(r[len(a):], b)
 	return r
