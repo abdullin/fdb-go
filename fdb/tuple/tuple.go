@@ -33,7 +33,7 @@
 // nil.
 package tuple
 
-import "github.com/segmentio/fdb-go/fdb"
+import "github.com/abdullin/fdb-go/fdb"
 import "encoding/binary"
 import "bytes"
 import "fmt"

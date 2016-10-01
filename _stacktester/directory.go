@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/FoundationDB/fdb-go/fdb"
-	"github.com/FoundationDB/fdb-go/fdb/tuple"
-	"github.com/FoundationDB/fdb-go/fdb/subspace"
-	"github.com/FoundationDB/fdb-go/fdb/directory"
+	"github.com/abdullin/fdb-go/fdb"
+	"github.com/abdullin/fdb-go/fdb/tuple"
+	"github.com/abdullin/fdb-go/fdb/subspace"
+	"github.com/abdullin/fdb-go/fdb/directory"
 	"strings"
 	"bytes"
 )

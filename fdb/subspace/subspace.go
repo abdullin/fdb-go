@@ -32,8 +32,8 @@
 package subspace
 
 import (
-	"github.com/FoundationDB/fdb-go/fdb"
-	"github.com/FoundationDB/fdb-go/fdb/tuple"
+	"github.com/abdullin/fdb-go/fdb"
+	"github.com/abdullin/fdb-go/fdb/tuple"
 	"bytes"
 	"errors"
 )

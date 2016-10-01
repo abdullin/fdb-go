@@ -38,7 +38,7 @@ A basic interaction with the FoundationDB API is demonstrated below:
     package main
 
     import (
-        "github.com/FoundationDB/fdb-go/fdb"
+        "github.com/abdullin/fdb-go/fdb"
         "log"
         "fmt"
     )

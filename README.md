@@ -12,10 +12,10 @@ Use of this package requires the selection of a FoundationDB API version at runt
 
 To install this package, run:
 
-    go get github.com/FoundationDB/fdb-go/fdb
+    go get github.com/abdullin/fdb-go/fdb
 
 Documentation
 -------------
 
-* [API documentation](http://godoc.org/github.com/FoundationDB/fdb-go/fdb)
+* [API documentation](http://godoc.org/github.com/abdullin/fdb-go/fdb)
 * [Tutorial](https://foundationdb.com/documentation/class-scheduling-go.html)

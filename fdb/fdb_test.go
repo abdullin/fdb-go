@@ -22,7 +22,7 @@
 package fdb_test
 
 import (
-	"github.com/FoundationDB/fdb-go/fdb"
+	"github.com/abdullin/fdb-go/fdb"
 	"fmt"
 )
 
