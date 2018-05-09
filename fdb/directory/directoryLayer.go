@@ -1,44 +1,46 @@
+/*
+ * directoryLayer.go
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2013-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 // FoundationDB Go Directory Layer
-// Copyright (c) 2013 FoundationDB, LLC
-
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
 
 package directory
 
 import (
-	"github.com/abdullin/fdb-go/fdb"
-	"github.com/abdullin/fdb-go/fdb/subspace"
-	"github.com/abdullin/fdb-go/fdb/tuple"
-	"encoding/binary"
 	"bytes"
-	"fmt"
+	"encoding/binary"
 	"errors"
+	"fmt"
+
+	"github.com/apple/foundationdb/bindings/go/src/fdb"
+	"github.com/apple/foundationdb/bindings/go/src/fdb/subspace"
+	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
 )
 
 type directoryLayer struct {
-	nodeSS subspace.Subspace
+	nodeSS    subspace.Subspace
 	contentSS subspace.Subspace
 
 	allowManualPrefixes bool
 
 	allocator highContentionAllocator
-	rootNode subspace.Subspace
+	rootNode  subspace.Subspace
 
 	path []string
 }
@@ -77,9 +79,8 @@ func (dl directoryLayer) createOrOpen(rtr fdb.ReadTransaction, tr *fdb.Transacti
 	if prefix != nil && !dl.allowManualPrefixes {
 		if len(dl.path) == 0 {
 			return nil, errors.New("cannot specify a prefix unless manual prefixes are enabled")
-		} else {
-			return nil, errors.New("cannot specify a prefix in a partition")
 		}
+		return nil, errors.New("cannot specify a prefix in a partition")
 	}
 
 	if len(path) == 0 {
@@ -129,13 +130,17 @@ func (dl directoryLayer) createOrOpen(rtr fdb.ReadTransaction, tr *fdb.Transacti
 		prefix = newss.Bytes()
 
 		pf, e := dl.isPrefixFree(rtr.Snapshot(), prefix)
-		if e != nil { return nil, e }
+		if e != nil {
+			return nil, e
+		}
 		if !pf {
 			return nil, errors.New("the directory layer has manually allocated prefixes that conflict with the automatic prefix allocator")
 		}
 	} else {
 		pf, e := dl.isPrefixFree(rtr, prefix)
-		if e != nil { return nil, e }
+		if e != nil {
+			return nil, e
+		}
 		if !pf {
 			return nil, errors.New("the given prefix is already in use")
 		}
@@ -170,7 +175,7 @@ func (dl directoryLayer) createOrOpen(rtr fdb.ReadTransaction, tr *fdb.Transacti
 }
 
 func (dl directoryLayer) CreateOrOpen(t fdb.Transactor, path []string, layer []byte) (DirectorySubspace, error) {
-	r, e := t.Transact(func (tr fdb.Transaction) (interface{}, error) {
+	r, e := t.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		return dl.createOrOpen(tr, &tr, path, layer, nil, true, true)
 	})
 	if e != nil {
@@ -180,7 +185,7 @@ func (dl directoryLayer) CreateOrOpen(t fdb.Transactor, path []string, layer []b
 }
 
 func (dl directoryLayer) Create(t fdb.Transactor, path []string, layer []byte) (DirectorySubspace, error) {
-	r, e := t.Transact(func (tr fdb.Transaction) (interface{}, error) {
+	r, e := t.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		return dl.createOrOpen(tr, &tr, path, layer, nil, true, false)
 	})
 	if e != nil {
@@ -193,7 +198,7 @@ func (dl directoryLayer) CreatePrefix(t fdb.Transactor, path []string, layer []b
 	if prefix == nil {
 		prefix = []byte{}
 	}
-	r, e := t.Transact(func (tr fdb.Transaction) (interface{}, error) {
+	r, e := t.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		return dl.createOrOpen(tr, &tr, path, layer, prefix, true, false)
 	})
 	if e != nil {
@@ -203,7 +208,7 @@ func (dl directoryLayer) CreatePrefix(t fdb.Transactor, path []string, layer []b
 }
 
 func (dl directoryLayer) Open(rt fdb.ReadTransactor, path []string, layer []byte) (DirectorySubspace, error) {
-	r, e := rt.ReadTransact(func (rtr fdb.ReadTransaction) (interface{}, error) {
+	r, e := rt.ReadTransact(func(rtr fdb.ReadTransaction) (interface{}, error) {
 		return dl.createOrOpen(rtr, nil, path, layer, nil, false, true)
 	})
 	if e != nil {
@@ -213,7 +218,7 @@ func (dl directoryLayer) Open(rt fdb.ReadTransactor, path []string, layer []byte
 }
 
 func (dl directoryLayer) Exists(rt fdb.ReadTransactor, path []string) (bool, error) {
-	r, e := rt.ReadTransact(func (rtr fdb.ReadTransaction) (interface{}, error) {
+	r, e := rt.ReadTransact(func(rtr fdb.ReadTransaction) (interface{}, error) {
 		if e := dl.checkVersion(rtr, nil); e != nil {
 			return false, e
 		}
@@ -240,7 +245,7 @@ func (dl directoryLayer) Exists(rt fdb.ReadTransactor, path []string) (bool, err
 }
 
 func (dl directoryLayer) List(rt fdb.ReadTransactor, path []string) ([]string, error) {
-	r, e := rt.ReadTransact(func (rtr fdb.ReadTransaction) (interface{}, error) {
+	r, e := rt.ReadTransact(func(rtr fdb.ReadTransaction) (interface{}, error) {
 		if e := dl.checkVersion(rtr, nil); e != nil {
 			return nil, e
 		}
@@ -271,7 +276,7 @@ func (dl directoryLayer) MoveTo(t fdb.Transactor, newAbsolutePath []string) (Dir
 }
 
 func (dl directoryLayer) Move(t fdb.Transactor, oldPath []string, newPath []string) (DirectorySubspace, error) {
-	r, e := t.Transact(func (tr fdb.Transaction) (interface{}, error) {
+	r, e := t.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		if e := dl.checkVersion(tr, &tr); e != nil {
 			return nil, e
 		}
@@ -329,7 +334,7 @@ func (dl directoryLayer) Move(t fdb.Transactor, oldPath []string, newPath []stri
 }
 
 func (dl directoryLayer) Remove(t fdb.Transactor, path []string) (bool, error) {
-	r, e := t.Transact(func (tr fdb.Transaction) (interface{}, error) {
+	r, e := t.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		if e := dl.checkVersion(tr, &tr); e != nil {
 			return false, e
 		}
@@ -374,9 +379,13 @@ func (dl directoryLayer) removeRecursive(tr fdb.Transaction, node subspace.Subsp
 	}
 
 	p, e := dl.nodeSS.Unpack(node)
-	if e != nil { return e }
+	if e != nil {
+		return e
+	}
 	kr, e := fdb.PrefixRange(p[0].([]byte))
-	if e != nil { return e }
+	if e != nil {
+		return e
+	}
 
 	tr.ClearRange(kr)
 	tr.ClearRange(node)
@@ -444,7 +453,7 @@ func (dl directoryLayer) nodeContainingKey(rtr fdb.ReadTransaction, key []byte) 
 	bk, _ := dl.nodeSS.FDBRangeKeys()
 	kr := fdb.KeyRange{bk, fdb.Key(append(dl.nodeSS.Pack(tuple.Tuple{key}), 0x00))}
 
-	kvs := rtr.GetRange(kr, fdb.RangeOptions{Reverse:true, Limit:1}).GetSliceOrPanic()
+	kvs := rtr.GetRange(kr, fdb.RangeOptions{Reverse: true, Limit: 1}).GetSliceOrPanic()
 	if len(kvs) == 1 {
 		pp, e := dl.nodeSS.Unpack(kvs[0].Key)
 		if e != nil {
@@ -539,7 +548,7 @@ func (dl directoryLayer) contentsOfNode(node subspace.Subspace, path []string, l
 	}
 	prefix := p[0]
 
-	newPath := make([]string, len(dl.path) + len(path))
+	newPath := make([]string, len(dl.path)+len(path))
 	copy(newPath, dl.path)
 	copy(newPath[len(dl.path):], path)
 
@@ -547,19 +556,20 @@ func (dl directoryLayer) contentsOfNode(node subspace.Subspace, path []string, l
 	ss := subspace.FromBytes(pb)
 
 	if bytes.Compare(layer, []byte("partition")) == 0 {
-		nssb := make([]byte, len(pb) + 1)
+		nssb := make([]byte, len(pb)+1)
 		copy(nssb, pb)
 		nssb[len(pb)] = 0xFE
 		ndl := NewDirectoryLayer(subspace.FromBytes(nssb), ss, false).(directoryLayer)
 		ndl.path = newPath
 		return directoryPartition{ndl, dl}, nil
-	} else {
-		return directorySubspace{ss, dl, newPath, layer}, nil
 	}
+	return directorySubspace{ss, dl, newPath, layer}, nil
 }
 
 func (dl directoryLayer) nodeWithPrefix(prefix []byte) subspace.Subspace {
-	if prefix == nil { return nil }
+	if prefix == nil {
+		return nil
+	}
 	return dl.nodeSS.Sub(prefix)
 }
 
@@ -575,9 +585,9 @@ func (dl directoryLayer) find(rtr fdb.ReadTransaction, path []string) *node {
 }
 
 func (dl directoryLayer) partitionSubpath(lpath, rpath []string) []string {
-	r := make([]string, len(lpath) - len(dl.path) + len(rpath))
+	r := make([]string, len(lpath)-len(dl.path)+len(rpath))
 	copy(r, lpath[len(dl.path):])
-	copy(r[len(lpath) - len(dl.path):], rpath)
+	copy(r[len(lpath)-len(dl.path):], rpath)
 	return r
 }
 

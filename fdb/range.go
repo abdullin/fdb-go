@@ -1,28 +1,29 @@
+/*
+ * range.go
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2013-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 // FoundationDB Go API
-// Copyright (c) 2013 FoundationDB, LLC
-
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
 
 package fdb
 
 /*
- #define FDB_API_VERSION 200
+ #define FDB_API_VERSION 510
  #include <foundationdb/fdb_c.h>
 */
 import "C"
@@ -33,7 +34,7 @@ import (
 
 // KeyValue represents a single key-value pair in the database.
 type KeyValue struct {
-	Key Key
+	Key   Key
 	Value []byte
 }
 
@@ -120,11 +121,11 @@ func (sr SelectorRange) FDBRangeKeySelectors() (Selectable, Selectable) {
 // A RangeResult should not be returned from a transactional function passed to
 // the Transact method of a Transactor.
 type RangeResult struct {
-	t *transaction
-	sr SelectorRange
-	options RangeOptions
+	t        *transaction
+	sr       SelectorRange
+	options  RangeOptions
 	snapshot bool
-	f *futureKeyValueArray
+	f        *futureKeyValueArray
 }
 
 // GetSliceWithError returns a slice of KeyValue objects satisfying the range
@@ -172,12 +173,12 @@ func (rr RangeResult) GetSliceOrPanic() []KeyValue {
 // range specified in the read that returned this RangeResult.
 func (rr RangeResult) Iterator() *RangeIterator {
 	return &RangeIterator{
-		t: rr.t,
-		f: rr.f,
-		sr: rr.sr,
-		options: rr.options,
+		t:         rr.t,
+		f:         rr.f,
+		sr:        rr.sr,
+		options:   rr.options,
 		iteration: 1,
-		snapshot: rr.snapshot,
+		snapshot:  rr.snapshot,
 	}
 }
 
@@ -192,17 +193,17 @@ func (rr RangeResult) Iterator() *RangeIterator {
 // RangeResult and used concurrently. RangeIterator should not be returned from
 // a transactional function passed to the Transact method of a Transactor.
 type RangeIterator struct {
-	t *transaction
-	f *futureKeyValueArray
-	sr SelectorRange
-	options RangeOptions
+	t         *transaction
+	f         *futureKeyValueArray
+	sr        SelectorRange
+	options   RangeOptions
 	iteration int
-	done bool
-	more bool
-	kvs []KeyValue
-	index int
-	err error
-	snapshot bool
+	done      bool
+	more      bool
+	kvs       []KeyValue
+	index     int
+	err       error
+	snapshot  bool
 }
 
 // Advance attempts to advance the iterator to the next key-value pair. Advance
@@ -221,7 +222,7 @@ func (ri *RangeIterator) Advance() bool {
 	ri.kvs, ri.more, ri.err = ri.f.Get()
 	ri.index = 0
 	ri.f = nil
-	
+
 	if ri.err != nil || len(ri.kvs) > 0 {
 		return true
 	}
@@ -246,7 +247,7 @@ func (ri *RangeIterator) fetchNextBatch() {
 		ri.sr.Begin = FirstGreaterThan(ri.kvs[ri.index-1].Key)
 	}
 
-	ri.iteration += 1
+	ri.iteration++
 
 	f := ri.t.doGetRange(ri.sr, ri.options, ri.snapshot, ri.iteration)
 	ri.f = &f
@@ -264,7 +265,7 @@ func (ri *RangeIterator) Get() (kv KeyValue, e error) {
 
 	kv = ri.kvs[ri.index]
 
-	ri.index += 1
+	ri.index++
 
 	if ri.index == len(ri.kvs) {
 		ri.fetchNextBatch()
@@ -285,12 +286,12 @@ func (ri *RangeIterator) MustGet() KeyValue {
 	return kv
 }
 
-func strinc(prefix []byte) ([]byte, error) {
+func Strinc(prefix []byte) ([]byte, error) {
 	for i := len(prefix) - 1; i >= 0; i-- {
 		if prefix[i] != 0xFF {
 			ret := make([]byte, i+1)
 			copy(ret, prefix[:i+1])
-			ret[i] += 1
+			ret[i]++
 			return ret, nil
 		}
 	}
@@ -308,7 +309,7 @@ func strinc(prefix []byte) ([]byte, error) {
 func PrefixRange(prefix []byte) (KeyRange, error) {
 	begin := make([]byte, len(prefix))
 	copy(begin, prefix)
-	end, e := strinc(begin)
+	end, e := Strinc(begin)
 	if e != nil {
 		return KeyRange{}, nil
 	}

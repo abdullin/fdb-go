@@ -1,39 +1,40 @@
+/*
+ * fdb.go
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2013-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 // FoundationDB Go API
-// Copyright (c) 2013 FoundationDB, LLC
-
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
 
 package fdb
 
 /*
- #define FDB_API_VERSION 200
+ #define FDB_API_VERSION 510
  #include <foundationdb/fdb_c.h>
  #include <stdlib.h>
 */
 import "C"
 
 import (
+	"fmt"
+	"log"
 	"runtime"
 	"sync"
 	"unsafe"
-	"fmt"
-	"log"
 )
 
 /* Would put this in futures.go but for the documented issue with
@@ -52,7 +53,7 @@ type Transactor interface {
 	// Transact executes the caller-provided function, providing it with a
 	// Transaction (itself a Transactor, allowing composition of transactional
 	// functions).
-	Transact(func (Transaction) (interface{}, error)) (interface{}, error)
+	Transact(func(Transaction) (interface{}, error)) (interface{}, error)
 
 	// All Transactors are also ReadTransactors, allowing them to be used with
 	// read-only transactional functions.
@@ -67,7 +68,7 @@ type ReadTransactor interface {
 	// ReadTransact executes the caller-provided function, providing it with a
 	// ReadTransaction (itself a ReadTransactor, allowing composition of
 	// read-only transactional functions).
-	ReadTransact(func (ReadTransaction) (interface{}, error)) (interface{}, error)
+	ReadTransact(func(ReadTransaction) (interface{}, error)) (interface{}, error)
 }
 
 func setOpt(setter func(*C.uint8_t, C.int) C.fdb_error_t, param []byte) error {
@@ -108,8 +109,16 @@ func (opt NetworkOptions) setOpt(code int, param []byte) error {
 // library, an error will be returned. APIVersion must be called prior to any
 // other functions in the fdb package.
 //
-// Currently, this package supports API versions 200 and 300.
+// Currently, this package supports API versions 200 through 510.
+//
+// Warning: When using the multi-version client API, setting an API version that
+// is not supported by a particular client library will prevent that client from
+// being used to connect to the cluster. In particular, you should not advance
+// the API version of your application after upgrading your client until the
+// cluster has also been upgraded.
 func APIVersion(version int) error {
+	headerVersion := 510
+
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
 
@@ -120,17 +129,18 @@ func APIVersion(version int) error {
 		return errAPIVersionAlreadySet
 	}
 
-	if version < 200 || version > 300 {
+	if version < 200 || version > 510 {
 		return errAPIVersionNotSupported
 	}
 
-	if e := C.fdb_select_api_version_impl(C.int(version), 300); e != 0 {
-		if e == 2203 && version == 200 {
-			e = C.fdb_select_api_version_impl(C.int(version), 200)
-		}
+	if e := C.fdb_select_api_version_impl(C.int(version), C.int(headerVersion)); e != 0 {
 		if e != 0 {
 			if e == 2203 {
-				return fmt.Errorf("API version %d not supported by the installed FoundationDB C library", version)
+				maxSupportedVersion := C.fdb_get_max_api_version()
+				if headerVersion > int(maxSupportedVersion) {
+					return fmt.Errorf("This version of the FoundationDB Go binding is not supported by the installed FoundationDB C library. The binding requires a library that supports API version %d, but the installed library supports a maximum version of %d.", version, maxSupportedVersion)
+				}
+				return fmt.Errorf("API version %d is not supported by the installed FoundationDB C library.", version)
 			}
 			return Error{int(e)}
 		}
@@ -315,9 +325,8 @@ func CreateCluster(clusterFile string) (Cluster, error) {
 func byteSliceToPtr(b []byte) *C.uint8_t {
 	if len(b) > 0 {
 		return (*C.uint8_t)(unsafe.Pointer(&b[0]))
-	} else {
-		return nil
 	}
+	return nil
 }
 
 // A KeyConvertible can be converted to a FoundationDB Key. All functions in the

@@ -1,28 +1,29 @@
+/*
+ * transaction.go
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2013-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 // FoundationDB Go API
-// Copyright (c) 2013 FoundationDB, LLC
-
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
 
 package fdb
 
 /*
- #define FDB_API_VERSION 200
+ #define FDB_API_VERSION 510
  #include <foundationdb/fdb_c.h>
 */
 import "C"
@@ -57,7 +58,7 @@ type ReadTransaction interface {
 //
 // Transactions group operations into a unit with the properties of atomicity,
 // isolation, and durability. Transactions also provide the ability to maintain
-// an application’s invariants or integrity constraints, supporting the property
+// an applications invariants or integrity constraints, supporting the property
 // of consistency. Together these properties are known as ACID.
 //
 // Transactions are also causally consistent: once a transaction has been
@@ -69,7 +70,7 @@ type Transaction struct {
 
 type transaction struct {
 	ptr *C.FDBTransaction
-	db Database
+	db  Database
 }
 
 // TransactionOptions is a handle with which to set options that affect a
@@ -109,7 +110,7 @@ func (t Transaction) GetDatabase() Database {
 //
 // See the Transactor interface for an example of using Transact with
 // Transaction and Database objects.
-func (t Transaction) Transact(f func (Transaction) (interface{}, error)) (r interface{}, e error) {
+func (t Transaction) Transact(f func(Transaction) (interface{}, error)) (r interface{}, e error) {
 	defer panicToError(&e)
 
 	r, e = f(t)
@@ -141,7 +142,7 @@ func (t Transaction) ReadTransact(f func(ReadTransaction) (interface{}, error)) 
 // (Transaction).Reset.
 //
 // Be careful if you are using (Transaction).Reset and (Transaction).Cancel
-// concurrently with the same transaction. Since they negate each other’s
+// concurrently with the same transaction. Since they negate each others
 // effects, a race condition between these calls will leave the transaction in
 // an unknown state.
 //
@@ -158,7 +159,7 @@ func (t Transaction) Cancel() {
 
 // (Infrequently used) SetReadVersion sets the database version that the transaction will read from
 // the database. The database cannot guarantee causal consistency if this method
-// is used (the transaction’s reads will be causally consistent only if the
+// is used (the transactions reads will be causally consistent only if the
 // provided read version has that property).
 func (t Transaction) SetReadVersion(version int64) {
 	C.fdb_transaction_set_read_version(t.ptr, C.int64_t(version))
@@ -170,7 +171,7 @@ func (t Transaction) SetReadVersion(version int64) {
 // but making it harder to reason about concurrency.
 //
 // For more information on snapshot reads, see
-// https://foundationdb.com/documentation/developer-guide.html#using-snapshot-reads.
+// https://apple.github.io/foundationdb/developer-guide.html#snapshot-reads.
 func (t Transaction) Snapshot() Snapshot {
 	return Snapshot{t.transaction}
 }
@@ -195,7 +196,7 @@ func (t Transaction) OnError(e Error) FutureNil {
 // As with other client/server databases, in some failure scenarios a client may
 // be unable to determine whether a transaction succeeded. For more information,
 // see
-// https://foundationdb.com/documentation/developer-guide.html#developer-guide-unknown-results.
+// https://apple.github.io/foundationdb/developer-guide.html#transactions-with-unknown-results.
 func (t Transaction) Commit() FutureNil {
 	return &futureNil{newFuture(C.fdb_transaction_commit(t.ptr))}
 }
@@ -203,10 +204,10 @@ func (t Transaction) Commit() FutureNil {
 // Watch creates a watch and returns a FutureNil that will become ready when the
 // watch reports a change to the value of the specified key.
 //
-// A watch’s behavior is relative to the transaction that created it. A watch
-// will report a change in relation to the key’s value as readable by that
+// A watchs behavior is relative to the transaction that created it. A watch
+// will report a change in relation to the keys value as readable by that
 // transaction. The initial value used for comparison is either that of the
-// transaction’s read version or the value as modified by the transaction itself
+// transactions read version or the value as modified by the transaction itself
 // prior to the creation of the watch. If the value changes and then changes
 // back to its initial value, the watch might not report the change.
 //
@@ -259,11 +260,11 @@ func (t *transaction) getRange(r Range, options RangeOptions, snapshot bool) Ran
 	f := t.doGetRange(r, options, snapshot, 1)
 	begin, end := r.FDBRangeKeySelectors()
 	return RangeResult{
-		t: t,
-		sr: SelectorRange{begin, end},
-		options: options,
+		t:        t,
+		sr:       SelectorRange{begin, end},
+		options:  options,
 		snapshot: snapshot,
-		f: &f,
+		f:        &f,
 	}
 }
 
@@ -330,6 +331,17 @@ func (t Transaction) GetCommittedVersion() (int64, error) {
 	return int64(version), nil
 }
 
+// (Infrequently used) Returns a future which will contain the versionstamp
+// which was used by any versionstamp operations in this transaction. The
+// future will be ready only after the successful completion of a call to Commit
+// on this Transaction. Read-only transactions do not modify the database when
+// committed and will result in the future completing with an error. Keep in
+// mind that a transaction which reads keys and then sets them to their current
+// values may be optimized to a read-only transaction.
+func (t Transaction) GetVersionstamp() FutureKey {
+	return &futureKey{future: newFuture(C.fdb_transaction_get_versionstamp(t.ptr))}
+}
+
 // Reset rolls back a transaction, completely resetting it to its initial
 // state. This is logically equivalent to destroying the transaction and
 // creating a new one.
@@ -340,9 +352,8 @@ func (t Transaction) Reset() {
 func boolToInt(b bool) int {
 	if b {
 		return 1
-	} else {
-		return 0
 	}
+	return 0
 }
 
 func (t *transaction) getKey(sel KeySelector, snapshot int) FutureKey {
@@ -378,50 +389,51 @@ func addConflictRange(t *transaction, er ExactRange, crtype conflictRangeType) e
 	return nil
 }
 
-// AddReadConflictRange adds a range of keys to the transaction’s read conflict
+// AddReadConflictRange adds a range of keys to the transactions read conflict
 // ranges as if you had read the range. As a result, other transactions that
 // write a key in this range could cause the transaction to fail with a
 // conflict.
 //
 // For more information on conflict ranges, see
-// https://foundationdb.com/documentation/developer-guide.html#conflict-ranges.
+// https://apple.github.io/foundationdb/developer-guide.html#conflict-ranges.
 func (t Transaction) AddReadConflictRange(er ExactRange) error {
 	return addConflictRange(t.transaction, er, conflictRangeTypeRead)
 }
 
 func copyAndAppend(orig []byte, b byte) []byte {
-	ret := make([]byte, len(orig) + 1)
+	ret := make([]byte, len(orig)+1)
 	copy(ret, orig)
-	return append(ret, b)
+	ret[len(orig)] = b
+	return ret
 }
 
-// AddReadConflictKey adds a key to the transaction’s read conflict ranges as if
+// AddReadConflictKey adds a key to the transactions read conflict ranges as if
 // you had read the key. As a result, other transactions that concurrently write
 // this key could cause the transaction to fail with a conflict.
 //
 // For more information on conflict ranges, see
-// https://foundationdb.com/documentation/developer-guide.html#conflict-ranges.
+// https://apple.github.io/foundationdb/developer-guide.html#conflict-ranges.
 func (t Transaction) AddReadConflictKey(key KeyConvertible) error {
 	return addConflictRange(t.transaction, KeyRange{key, Key(copyAndAppend(key.FDBKey(), 0x00))}, conflictRangeTypeRead)
 }
 
-// AddWriteConflictRange adds a range of keys to the transaction’s write
+// AddWriteConflictRange adds a range of keys to the transactions write
 // conflict ranges as if you had cleared the range. As a result, other
 // transactions that concurrently read a key in this range could fail with a
 // conflict.
 //
 // For more information on conflict ranges, see
-// https://foundationdb.com/documentation/developer-guide.html#conflict-ranges.
+// https://apple.github.io/foundationdb/developer-guide.html#conflict-ranges.
 func (t Transaction) AddWriteConflictRange(er ExactRange) error {
 	return addConflictRange(t.transaction, er, conflictRangeTypeWrite)
 }
 
-// AddWriteConflictKey adds a key to the transaction’s write conflict ranges as
+// AddWriteConflictKey adds a key to the transactions write conflict ranges as
 // if you had written the key. As a result, other transactions that concurrently
 // read this key could fail with a conflict.
 //
 // For more information on conflict ranges, see
-// https://foundationdb.com/documentation/developer-guide.html#conflict-ranges.
+// https://apple.github.io/foundationdb/developer-guide.html#conflict-ranges.
 func (t Transaction) AddWriteConflictKey(key KeyConvertible) error {
 	return addConflictRange(t.transaction, KeyRange{key, Key(copyAndAppend(key.FDBKey(), 0x00))}, conflictRangeTypeWrite)
 }

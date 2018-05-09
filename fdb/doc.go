@@ -1,35 +1,36 @@
+/*
+ * doc.go
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2013-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 // FoundationDB Go API
-// Copyright (c) 2013 FoundationDB, LLC
-
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
 
 /*
-Package fdb provides an interface to FoundationDB databases (version 2.0).
+Package fdb provides an interface to FoundationDB databases (version 2.0 or higher).
 
 To build and run programs using this package, you must have an installed copy of
 the FoundationDB client libraries (version 2.0.0 or later), available for Linux,
-Windows and OS X at https://foundationdb.com/get.
+Windows and OS X at https://www.foundationdb.org/download/.
 
 This documentation specifically applies to the FoundationDB Go binding. For more
 extensive guidance to programming with FoundationDB, as well as API
 documentation for the other FoundationDB interfaces, please see
-https://foundationdb.com/documentation.
+https://apple.github.io/foundationdb/index.html.
 
 Basic Usage
 
@@ -38,7 +39,7 @@ A basic interaction with the FoundationDB API is demonstrated below:
     package main
 
     import (
-        "github.com/abdullin/fdb-go/fdb"
+        "github.com/apple/foundationdb/bindings/go/src/fdb"
         "log"
         "fmt"
     )
@@ -197,12 +198,12 @@ operations perform different transformations. Like other database operations, an
 atomic operation is used within a transaction.
 
 For more information on atomic operations in FoundationDB, please see
-https://foundationdb.com/documentation/developer-guide.html#atomic-operations. The
+https://apple.github.io/foundationdb/developer-guide.html#atomic-operations. The
 operands to atomic operations in this API must be provided as appropriately
 encoded byte slices. To convert a Go type to a byte slice, see the binary
 package.
 
-The current atomic operations in this API are Add, BitAnd, BitOr and BitXor (all
-methods on Transaction).
+The current atomic operations in this API are Add, BitAnd, BitOr, BitXor, Max, Min,
+SetVersionstampedKey, SetVersionstampedValue (all methods on Transaction).
 */
 package fdb

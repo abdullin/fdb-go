@@ -1,35 +1,37 @@
+/*
+ * fdb_test.go
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2013-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 // FoundationDB Go API
-// Copyright (c) 2013 FoundationDB, LLC
-
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
 
 package fdb_test
 
 import (
-	"github.com/abdullin/fdb-go/fdb"
 	"fmt"
+	"github.com/apple/foundationdb/bindings/go/src/fdb"
+	"testing"
 )
 
 func ExampleOpenDefault() {
 	var e error
 
-	e = fdb.APIVersion(200)
+	e = fdb.APIVersion(400)
 	if e != nil {
 		fmt.Printf("Unable to set API version: %v\n", e)
 		return
@@ -46,8 +48,43 @@ func ExampleOpenDefault() {
 	_ = db
 }
 
+func ExampleVersionstamp(t *testing.T) {
+	fdb.MustAPIVersion(400)
+	db := fdb.MustOpenDefault()
+
+	setVs := func(t fdb.Transactor, key fdb.Key) (fdb.FutureKey, error) {
+		fmt.Printf("setOne called with:  %T\n", t)
+		ret, e := t.Transact(func(tr fdb.Transaction) (interface{}, error) {
+			tr.SetVersionstampedValue(key, []byte("blahblahbl"))
+			return tr.GetVersionstamp(), nil
+		})
+		return ret.(fdb.FutureKey), e
+	}
+
+	getOne := func(rt fdb.ReadTransactor, key fdb.Key) ([]byte, error) {
+		fmt.Printf("getOne called with: %T\n", rt)
+		ret, e := rt.ReadTransact(func(rtr fdb.ReadTransaction) (interface{}, error) {
+			return rtr.Get(key).MustGet(), nil
+		})
+		if e != nil {
+			return nil, e
+		}
+		return ret.([]byte), nil
+	}
+
+	var v []byte
+	var fvs fdb.FutureKey
+	var k fdb.Key
+
+	fvs, _ = setVs(db, fdb.Key("foo"))
+	v, _ = getOne(db, fdb.Key("foo"))
+	t.Log(v)
+	k, _ = fvs.Get()
+	t.Log(k)
+}
+
 func ExampleTransactor() {
-	fdb.MustAPIVersion(200)
+	fdb.MustAPIVersion(400)
 	db := fdb.MustOpenDefault()
 
 	setOne := func(t fdb.Transactor, key fdb.Key, value []byte) error {
@@ -63,7 +100,7 @@ func ExampleTransactor() {
 	setMany := func(t fdb.Transactor, value []byte, keys ...fdb.Key) error {
 		fmt.Printf("setMany called with: %T\n", t)
 		_, e := t.Transact(func(tr fdb.Transaction) (interface{}, error) {
-			for _, key := range(keys) {
+			for _, key := range keys {
 				setOne(tr, key, value)
 			}
 			return nil, nil
@@ -98,7 +135,7 @@ func ExampleTransactor() {
 }
 
 func ExampleReadTransactor() {
-	fdb.MustAPIVersion(200)
+	fdb.MustAPIVersion(400)
 	db := fdb.MustOpenDefault()
 
 	getOne := func(rt fdb.ReadTransactor, key fdb.Key) ([]byte, error) {
@@ -151,7 +188,7 @@ func ExampleReadTransactor() {
 }
 
 func ExamplePrefixRange() {
-	fdb.MustAPIVersion(200)
+	fdb.MustAPIVersion(400)
 	db := fdb.MustOpenDefault()
 
 	tr, e := db.CreateTransaction()
@@ -190,7 +227,7 @@ func ExamplePrefixRange() {
 }
 
 func ExampleRangeIterator() {
-	fdb.MustAPIVersion(200)
+	fdb.MustAPIVersion(400)
 	db := fdb.MustOpenDefault()
 
 	tr, e := db.CreateTransaction()
